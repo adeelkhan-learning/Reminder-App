@@ -27,3 +27,10 @@ A lightweight, self-hosted web application engineered to monitor critical family
    
 3. **Trigger Orchestration:**
    - Set an external GET request agent targeting `api.php?key=YOUR_KEY&user_id=TARGET_ID`.
+
+### 📲 Dual-Platform Native Mobile Automation
+
+To achieve enterprise-grade mobile tracking without developing standalone native apps, the platform leverages asynchronous background triggers native to both mobile operating systems:
+
+* **iOS Automation (Apple Shortcuts):** Integrated via a native iOS Personal Automation workflow. Utilizing a `Get Contents of URL` block paired with a `Show Notification` action, the script executes silently on an automated 24-hour cycle. It pings the authenticated backend endpoint and passes the response payload directly into a native iOS status-bar notification banner.
+* **Android Automation (HTTP Request Shortcuts):** Configured via a background execution execution layer running on a strict 24-hour repetition cycle. The app handles background HTTP GET handshakes and processes data output silently, avoiding the need for manual browser refreshes or server-side cron dependency.
