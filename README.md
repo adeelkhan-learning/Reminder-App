@@ -28,7 +28,7 @@ A lightweight, self-hosted web application engineered to monitor critical family
 3. **Trigger Orchestration:**
    - Set an external GET request agent targeting `api.php?key=YOUR_KEY&user_id=TARGET_ID`.
 
-### 📲 Dual-Platform Native Mobile Automation
+### Dual-Platform Native Mobile Automation
 
 To achieve enterprise-grade mobile tracking without developing standalone native apps, the platform leverages asynchronous background triggers native to both mobile operating systems:
 
