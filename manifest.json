@@ -1,0 +1,15 @@
+{
+  "short_name": "Expiry App",
+  "name": "Family Doc Expiry Reminder Portal",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": "login.php",
+  "background_color": "#212529",
+  "display": "standalone",
+  "theme_color": "#212529"
+}
