@@ -67,6 +67,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['nickname'])) {
     $r2_days  = $_POST['reminder_2_days'];
     $user_id  = $_SESSION['user_id'];
 
+    $doc_type = $_POST['doc_type'];
+
+    // If 'Other Insurance' is picked, swap the value out with their specific custom name
+    if ($doc_type === 'Other Insurance' && !empty($_POST['other_insurance_name'])) {
+        $doc_type = trim($_POST['other_insurance_name']);
+    }
+    
     // SQL Query to include the new reminder columns
     $sql = "INSERT INTO expiry_reminders (user_id, nickname, relation, doc_type, country, expiry_date, reminder_1_days, reminder_2_days) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -132,7 +139,10 @@ if ($_SESSION['role'] == 'admin') {
     <link rel="manifest" href="manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Reminders</title>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-dark bg-dark mb-4">
@@ -180,23 +190,31 @@ if ($_SESSION['role'] == 'admin') {
                     </div>
                     
                     <div class="col-6">
-                        <select name="doc_type" id="doc_type_select" class="form-select" required>
-                            <option value="" disabled selected>Doc Type</option>
+                        <select id="doc_type" name="doc_type" class="form-select" onchange="toggleOtherInsurance(this.value)">
                             <option value="Passport">Passport</option>
-                            <option value="Identity Card">Identity Card</option>
-                            <option value="Driving License">Driving License</option>
-                            <option value="Vehicle Registration">Vehicle Registration</option>
                             <option value="Visa">Visa</option>
-                            <option value="Insurance">Insurance</option>
+                            <option value="Identity Card">Identity Card</option>
+                            <option value="Vehicle Registration">Vehicle Registration</option>
+                            <option value="Driving License">Driving License</option>
+                            <option value="Motor Insurance">Motor Insurance</option>
+                            <option value="Health Insurance">Health Insurance</option>
+                            <option value="House Insurance">House Insurance</option>
+                            <option value="Other Insurance">Other Insurance</option>
                         </select>
+                        
+                        <div id="other_insurance_wrapper" class="mt-2" style="display: none;">
+                            <label for="other_insurance_name" class="form-label">Specify Insurance Type:</label>
+                            <input type="text" id="other_insurance_name" name="other_insurance_name" class="form-control" placeholder="e.g., Travel, Life, Pet">
+                        </div>
                     </div>
                     
-                    <div class="col-6">
-                        <select name="country" class="form-select" id="country-select" required>
-                            <option value="" disabled selected>Country</option>
-                        </select>
+                    <div class="mb-3">
+                        <label for="countryInput" class="form-label">Country</label>
+                        <input class="form-control" list="datalistOptions" id="countryInput" name="country" placeholder="Type to search country..." required>
+                        
+                        <datalist id="datalistOptions"></datalist>
                     </div>
-        
+                                                
                     <div class="col-12">
                         <label class="form-label text-white-50 small">Expiry Date</label>
                         <input type="date" name="expiry_date" class="form-control" required>
@@ -226,6 +244,19 @@ if ($_SESSION['role'] == 'admin') {
         <!-- Export Button -->
         <div class="text-end mb-2">
             <a href="export.php" class="btn btn-sm btn-success shadow-sm">📥 Export to Excel</a>
+        </div>
+        
+        <!-- Search Bar -->
+        
+        <div class="mb-3 card p-3 shadow-sm">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-8">
+                    <input type="text" id="tableSearch" class="form-control" placeholder="🔍 Search by name, document type, country, or expiry date...">
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-secondary w-100" onclick="clearSearch()">Clear Filters</button>
+                </div>
+            </div>
         </div>
 
         <!-- Table -->
@@ -286,45 +317,122 @@ if ($_SESSION['role'] == 'admin') {
         });
         </script>
     </div>
-<script>
-fetch('https://restcountries.com/v3.1/all?fields=name')
-    .then(res => res.json())
-    .then(data => {
-        const select = document.getElementById('country-select');
-        const countries = data.map(c => c.name.common).sort();
-        countries.forEach(country => {
-            let opt = document.createElement('option');
-            opt.value = country;
-            opt.innerHTML = country;
-            select.appendChild(opt);
+
+    <script>
+    // DOCUMENT TYPE DYNAMIC LOGIC TUNER
+    document.getElementById('doc_type').addEventListener('change', function() {
+        const docType = this.value;
+        const r1 = document.getElementById('reminder_1');
+        const r2 = document.getElementById('reminder_2');
+        
+        // 1. First, handle our Business Logic for notification countdown buffers
+        if (docType === 'Passport') {
+            r1.value = 180; // 6 months for travel validity
+            r2.value = 60;  // 2 months final warning
+        } 
+        else if (docType === 'National ID' || docType === 'Driving License') {
+            r1.value = 30;  // 2 months
+            r2.value = 15;  // 15 days
+        } 
+        else if (docType === 'Vehicle Registration') {
+            r1.value = 30;  // 1 month
+            r2.value = 7;   // 1 week
+        } 
+        else if (docType === 'Visa') {
+            r1.value = 30;  // 1 month
+            r2.value = 10;  // 10 days
+        }
+        else if (docType.includes('Insurance')) {
+            // Automatically applies a safe standard 30/7 day buffer for all insurance categories
+            r1.value = 30;  // 1 month
+            r2.value = 7;   // 1 week
+        }
+    
+        // 2. Second, toggle our custom sub-input text field wrapper if "Other Insurance" is selected
+        const wrapper = document.getElementById('other_insurance_wrapper');
+        const input = document.getElementById('other_insurance_name');
+        
+        if (docType === 'Other Insurance') {
+            wrapper.style.display = 'block';
+            input.setAttribute('required', 'required');
+        } else {
+            wrapper.style.display = 'none';
+            input.removeAttribute('required');
+            input.value = '';
+        }
+    });
+        
+    </script>
+
+    <script>
+    // FETCH ALL COUNTRIES FROM API AND POPULATE DATALIST CORRECTLY
+    fetch('https://restcountries.com/v3.1/all?fields=name')
+        .then(res => res.json())
+        .then(data => {
+            const datalist = document.getElementById('datalistOptions');
+            
+            // Clear out any old initialization leftovers
+            datalist.innerHTML = ''; 
+            
+            // Map and sort the array alphabetically
+            const countries = data.map(c => c.name.common).sort();
+            
+            countries.forEach(country => {
+                let opt = document.createElement('option');
+                // Datalists require the name inside the 'value' attribute
+                opt.setAttribute('value', country); 
+                datalist.appendChild(opt);
+            });
+        }) // Closes the second .then() block cleanly
+        .catch(err => {
+            console.error("Error fetching countries API:", err);
+            
+            // EMERGENCY FALLBACK: If the API fails, load core countries manually
+            const datalist = document.getElementById('datalistOptions');
+            const fallback = ["United Kingdom", "United Arab Emirates", "Pakistan", "Saudi Arabia", "United States"];
+            fallback.forEach(c => {
+                let opt = document.createElement('option');
+                opt.setAttribute('value', c);
+                datalist.appendChild(opt);
+            });
+        }); // Closes the catch block and terminates the entire fetch chain perfectly
+
+    // CONDITIONAL INSURANCES INPUT TOGGLE
+    function toggleOtherInsurance(val) {
+        const wrapper = document.getElementById('other_insurance_wrapper');
+        const input = document.getElementById('other_insurance_name');
+        
+        if (val === 'Other Insurance') {
+            wrapper.style.display = 'block';
+            input.setAttribute('required', 'required');
+        } else {
+            wrapper.style.display = 'none';
+            input.removeAttribute('required');
+            input.value = '';
+        }
+    }
+
+    // REAL-TIME LIVE FILTERING ENGINE FOR THE REMINDER TABLE
+    document.getElementById('tableSearch').addEventListener('keyup', function() {
+        const value = this.value.toLowerCase();
+        const rows = document.querySelectorAll('table tbody tr'); 
+
+        rows.forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            if (rowText.indexOf(value) > -1) {
+                row.style.display = ''; 
+            } else {
+                row.style.display = 'none'; 
+            }
         });
     });
-</script>
-<script>
-document.getElementById('doc_type_select').addEventListener('change', function() {
-    const docType = this.value;
-    const r1 = document.getElementById('reminder_1');
-    const r2 = document.getElementById('reminder_2');
 
-    // Define your business logic for each document type
-    if (docType === 'Passport') {
-        r1.value = 180; // 6 months for travel validity
-        r2.value = 60;  // 2 months final warning
-    } 
-    else if (docType === 'Identity Card' || docType === 'Driving License') {
-        r1.value = 60;  // 2 months
-        r2.value = 15;  // 15 days
-    } 
-    else if (docType === 'Vehicle Registration') {
-        r1.value = 30;  // 1 month
-        r2.value = 7;   // 1 week
-    } 
-    else if (docType === 'Visa') {
-        r1.value = 30;  // 1 month
-        r2.value = 10;  // 10 days
+    // Clear function tool
+    function clearSearch() {
+        const searchInput = document.getElementById('tableSearch');
+        searchInput.value = '';
+        searchInput.dispatchEvent(new Event('keyup'));
     }
-    // You can add more 'else if' blocks for other types here
-});
-</script>
+    </script>
 </body>
 </html>
